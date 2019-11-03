@@ -1,0 +1,61 @@
+CLIENT
+request model pieces
+
+#CLIENT VIEW
+Feature
+	? disable form input on load
+adresse routing
+- support for older browser
+- push history
+- on pop history
+refresh
+- get current uri from history (or cache)
+- gather associated template
+? render main template
+? render template only if necessary
+	? detect associated model object changed
+		? immutability
+		? updated date
+	- if template loaded 
+		- display
+	- else
+		- print loading template
+		- 
+		- on tempalte loaded
+- render form
+- interrupt form submit
+
+EntityView
+	- create using via entity
+	? template[]
+
+MINIMAL PROD
+- render a page
+	- get root template using current uri
+	- render template using printo
+- change page using link
+	- intercept event if no event capture occur before
+	? 
+
+- render value from model
+- printo
+	? reduce string
+	- parse using split '::'
+	- trim expression
+	- ObjectAccessor
+		- access private field
+		- call accessor method
+		? agregate
+		? xpath like condition
+	- control struture for / if / else / end
+	? boolean expression ! + = \ / > < * . & | -
+
+- generate post request
+- update model on response
+- update model on form submit
+	? case single label form, submit after change and x second of inactivity
+	- link input value to model using path
+	- accessor getX / setX / public 
+	? validator
+	? type
+- update display on model update

@@ -1,0 +1,10 @@
+#_______________________________________________________________________________
+# Client compilation
+
+# Class Path
+-cp src
+-cp test
+
+-js build\res\main.js
+
+-main Main

@@ -1,0 +1,5 @@
+{
+	"address": "localhost",
+	"port": "8000",
+	"delegate": "request_handler.bat"
+}

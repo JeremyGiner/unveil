@@ -1,0 +1,14 @@
+{
+  "name": "unveil",
+  "url" : "https://github.com/JeremyGiner/unveil/",
+  "license": "MIT",
+  "tags": ["js", "web site client","framework","UI"],
+  "description": "Framework for building UI on the web",
+  "version": "1.0.0",
+  "classPath": "src/",
+  "releasenote": "Initial release, work in progress.",
+  "contributors": ["GINER jeremy"],
+  "dependencies": {
+    "sweet.functor": ""
+  }
+}
