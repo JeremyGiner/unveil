@@ -1,4 +1,4 @@
-package unveil;
+package unveil.template;
 import sweet.functor.IFunction;
 
 /**
@@ -12,11 +12,13 @@ class ForTemplate extends CompositeTemplate {
 	public function new( oExpression :IFunction<Dynamic,Iterable<Dynamic>>, sVarName :String ) {
 		super();
 		_oExpression = oExpression;
+		_sVarName = sVarName;
 	}
 	
 	override public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {
 		for ( o in _oExpression.apply( oContext ) ) {
-			var oCurrentContext = { Context: oContext, i: o }; // TODO : replace i by var name
+			var oCurrentContext = {}; // TODO : replace i by var name
+			Reflect.setField( oCurrentContext, _sVarName, o);
 			oBuffer = super.render( oCurrentContext, oBuffer );
 		}
 		return oBuffer;

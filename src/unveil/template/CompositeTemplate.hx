@@ -1,4 +1,4 @@
-package unveil;
+package unveil.template;
 
 /**
  * ...
@@ -9,7 +9,7 @@ class CompositeTemplate implements ITemplate {
 	var _aTemplate :Array<ITemplate>;
 	
 	public function new() {
-		
+		_aTemplate = new Array<ITemplate>();
 	}
 	
 	public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {

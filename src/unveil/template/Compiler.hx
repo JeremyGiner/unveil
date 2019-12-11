@@ -1,6 +1,8 @@
-package unveil;
+package unveil.template;
 import sweet.functor.IFunction;
+import unveil.View;
 import unveil.tool.VPathAccessor;
+import unveil.template.ITemplate;
 
 using StringTools;
 
@@ -18,9 +20,12 @@ class Compiler {
 	static var _ELSE = 'else';
 	static var _ENDIF = 'endif';
 	static var _ENDFOR = 'endfor';
+	static var _RENDER = 'render';
 
-	public function new() {
-		
+	var _oView :View;
+	
+	public function new( oView :View = null ) {
+		_oView = oView;
 	}
 	
 	public function compile( s :String ) {
@@ -53,7 +58,7 @@ class Compiler {
 			
 			// Case : else tokken
 			if ( s == 'else' ) {
-				cast( lStack.first(), IfTemplate).setElseBlock();
+				cast( lStack.first().template, IfTemplate).setElseBlock();
 			}
 			
 			// Compile instruction
@@ -119,6 +124,10 @@ class Compiler {
 		// re-arange sequence into arbo
 			
 		
+	}
+	
+	public function compileSubRender( s :String ) :ITemplate {
+		return new SubRendererTemplate( _oView.getTemplate(s) );
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {

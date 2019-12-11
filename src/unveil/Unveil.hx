@@ -2,6 +2,16 @@ package unveil;
 import js.Browser;
 import js.html.DOMElement;
 import js.html.Event;
+import unveil.template.ITemplate;
+import haxe.ds.StringMap;
+import js.lib.RegExp;
+import unveil.controller.PageController;
+
+typedef Route = {
+	var path_pattern :RegExp;
+	var template :ITemplate;
+	var page_data :Dynamic;
+}
 
 /**
  * ...
@@ -9,47 +19,25 @@ import js.html.Event;
  */
 class Unveil {
 
-	var _oRouter :RouterDefault;
+	var _oModel :Model;
+	var _oView :View;
 	
-	
-	public function new( oRouter :RouterDefault ) {
-		_oRouter = oRouter;
+	public function new( mRoute :StringMap<Route> ) {
+		_oModel = new Model();
+		_oView = new View( _oModel );
 		
-		js.Browser.document.addEventListener( 'click', handleClickEvent );
-		
-		updateView();
-	}
-	
-	public function goto( sPath :String ) {
-		
-		// TODO : convert sPath to relative
-		
-		js.Browser.window.history.pushState(
-			{id: 0},
-			"hellototo",
-			js.Browser.location.protocol+'//'+ js.Browser.location.hostname + sPath
-		);
-		
-		updateView();
-	}
-	
-	public function updateView() {
-		var oTemplate = _oRouter.getTemplate( js.Browser.location );
-		
-		Browser.document.body.innerHTML = oTemplate.render(null).toString();
-	}
-	
-	public function handleClickEvent( event :Event ) {
-		
-		// Handle link click
-		// TODO : make sure to have the least priority on click event
-		// TODO : handle form
-		var oTarget :DOMElement = cast event.currentTarget;
-		if ( oTarget.hasAttribute('href') ) {
-			event.preventDefault();
-			goto( oTarget.getAttribute('href') );
+		var mPageResolver = new StringMap<PageHandle>();// List?
+		for ( sKey => oRoute in mRoute ) {
+			_oView.addTemplate( sKey, oRoute.template );
+			mPageResolver.set( sKey, {
+				path_pattern: oRoute.path_pattern, 
+				page_data:  oRoute.page_data,
+			} );
 		}
-		//trace(js.Browser.location);
-    }
+		
+		var oPageController = new PageController( mPageResolver, _oView );
+		oPageController.goto( Browser.location.pathname );
+	}
+
 	
 }
