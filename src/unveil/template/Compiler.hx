@@ -20,7 +20,6 @@ class Compiler {
 	static var _ELSE = 'else';
 	static var _ENDIF = 'endif';
 	static var _ENDFOR = 'endfor';
-	static var _RENDER = 'render';
 
 	var _oView :View;
 	
@@ -63,6 +62,13 @@ class Compiler {
 			
 			// Compile instruction
 			var oBlockHeader = compileInstruction( s );
+			
+			
+			if ( s.startsWith('render(') && s.endsWith(')')  ) {
+				var s = s.substring(7, s.length - 1);
+				lStack.first().template.addPart( compileSubRender(s) );
+				continue;
+			}
 			
 			// Case : simple print var
 			if ( oBlockHeader == null ) {
@@ -113,6 +119,8 @@ class Compiler {
 				),
 			};
 		}
+		
+		
 		
 		
 		return null;

@@ -19,13 +19,10 @@ Not hello
 	<p>::sItem::</p>
 ::endfor::";
 		
-		var oCompiler = new Compiler();
-		
 		//TODO : create context and model
 		new Unveil( [
 			'home' => {
 				path_pattern: new RegExp('\\/'),
-				template: oCompiler.compile( sTemplate ),
 				page_data: {
 					hello: true,
 					content: 'page content',
@@ -34,10 +31,11 @@ Not hello
 			},
 			'not_found' => {
 				path_pattern: new RegExp('\\/not-found'),
-				template: oCompiler.compile( sTemplate ),
 				page_data: null,
 			}
-		] );
+		], [
+			'home' => sTemplate,
+		]);
 	}
 	
 }

@@ -4,7 +4,7 @@ import js.html.Event;
 class Test {
   static function main() {
       trace( js.Browser.location.pathname );
-      var o =new LinkClickEL();
+      var o = new LinkClickEL();
       js.Browser.document.addEventListener( 'click', o.handleClickEvent );
       js.Browser.document.addEventListener( 'popstate', o.handlePopStateEvent );
       
