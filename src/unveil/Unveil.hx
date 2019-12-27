@@ -20,6 +20,7 @@ typedef Route = {
 class Unveil {
 	var _oModel :Model;
 	var _oView :View;
+	var _oPageController :PageController;
 	
 	public function new( mRoute :StringMap<Route>, mTemplate :StringMap<String> ) {
 		_oModel = new Model();
@@ -42,9 +43,11 @@ class Unveil {
 		}
 		
 		
-		var oPageController = new PageController( mPageResolver, _oView );
-		oPageController.goto( Browser.location.pathname );
+		_oPageController = new PageController( mPageResolver, _oView );
+		_oPageController.goto( Browser.location.pathname );
 	}
 
-	
+	public function getPageController() {
+		return _oPageController;
+	}
 }
