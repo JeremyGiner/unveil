@@ -11,8 +11,13 @@ class VPathAccessor implements IFunction<Dynamic,Dynamic> {
     
     public function apply( o :Dynamic ) {
         var oRes = o;
-        for( sPathPart in _aPath )
-            oRes = getAccess( oRes, sPathPart );
+        for ( sPathPart in _aPath ) {
+			try {
+				oRes = getAccess( oRes, sPathPart );
+			} catch ( e :Dynamic ) {
+				throw 'cannot access "' + _aPath + '" because : ' + e;
+			}
+		}
         return oRes;
     }
     

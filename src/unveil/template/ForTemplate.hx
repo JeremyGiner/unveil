@@ -17,7 +17,7 @@ class ForTemplate extends CompositeTemplate {
 	
 	override public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {
 		for ( o in _oExpression.apply( oContext ) ) {
-			var oCurrentContext = {}; // TODO : replace i by var name
+			var oCurrentContext = Reflect.copy(oContext);
 			Reflect.setField( oCurrentContext, _sVarName, o);
 			oBuffer = super.render( oCurrentContext, oBuffer );
 		}

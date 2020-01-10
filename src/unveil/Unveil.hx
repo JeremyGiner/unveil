@@ -13,6 +13,11 @@ typedef Route = {
 	var page_data :Dynamic;
 }
 
+typedef TemplateItem = {
+	var key :String;
+	var template :String;
+}
+
 /**
  * ...
  * @author 
@@ -22,28 +27,25 @@ class Unveil {
 	var _oView :View;
 	var _oPageController :PageController;
 	
-	public function new( mRoute :StringMap<Route>, mTemplate :StringMap<String> ) {
+	public function new( 
+		mModel :StringMap<Dynamic>,
+		mPageHandle :StringMap<PageHandle>, 
+		aTemplate :Array<TemplateItem> 
+	) {
 		_oModel = new Model();
+		for ( s => o in mModel )
+			_oModel.setEntity( s, o );
 		_oView = new View( _oModel );
 		
 		
 		var oCompiler = new Compiler(_oView);
 		
-		for ( sKey => sTemplate in mTemplate ) {
-			_oView.addTemplate( sKey, oCompiler.compile(sTemplate) );
-		}
-		
-		var mPageResolver = new StringMap<PageHandle>();// List?
-		for ( sKey => oRoute in mRoute ) {
-			//_oView.addTemplate( sKey, oRoute.template );
-			mPageResolver.set( sKey, {
-				path_pattern: oRoute.path_pattern, 
-				page_data:  oRoute.page_data,
-			} );
+		for ( oItem in aTemplate ) {
+			_oView.addTemplate( oItem.key, oCompiler.compile(oItem.template) );
 		}
 		
 		
-		_oPageController = new PageController( mPageResolver, _oView );
+		_oPageController = new PageController( mPageHandle, _oModel, _oView );
 		_oPageController.goto( Browser.location.pathname );
 	}
 

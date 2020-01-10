@@ -20,6 +20,27 @@ class Compiler {
 	static var _ELSE = 'else';
 	static var _ENDIF = 'endif';
 	static var _ENDFOR = 'endfor';
+	
+	static var _aUnaryOperator = [
+        new UnaryOperator('!',function(a :Bool){ return !a;}),
+        new UnaryOperator('-',function(a :Dynamic){ return -a;}),
+    ];
+	static var _aOperator = [
+        new Operator('%',function(a :Dynamic,b :Dynamic){ return a%b;}),
+        new Operator('*',function(a :Dynamic,b :Dynamic){ return a*b;}),
+        new Operator('/',function(a :Dynamic,b :Dynamic){ return a/b;}),
+        new Operator('+',function(a :Dynamic,b :Dynamic){ return a+b;}),
+        new Operator('-',function(a :Dynamic,b :Dynamic){ return a-b;}),
+        new Operator('==',function(a :Dynamic,b :Dynamic){ return a==b;}),
+        new Operator('!=',function(a :Dynamic,b :Dynamic){ return a!=b;}),
+        new Operator('<',function(a :Dynamic,b :Dynamic){ return a<b;}),
+        new Operator('<=',function(a :Dynamic,b :Dynamic){ return a<=b;}),
+        new Operator('>',function(a :Dynamic,b :Dynamic){ return a>b;}),
+        new Operator('>=',function(a :Dynamic,b :Dynamic){ return a>=b;}),
+        new Operator('...',function(a :Dynamic,b :Dynamic){ return a...b;}),
+        new Operator('&&',function(a :Bool,b :Bool){ return a&&b;}),
+        new Operator('||',function(a :Bool,b :Bool){ return a||b;}),
+    ];
 
 	var _oView :View;
 	
@@ -37,7 +58,7 @@ class Compiler {
 		var a = s.split('::');
 		for ( i in 0...a.length ) {
 			
-			var s = a[i];
+			var s = a[i].trim();
 			
 			// Filter empty string
 			if ( s == '' )
@@ -57,7 +78,11 @@ class Compiler {
 			
 			// Case : else tokken
 			if ( s == 'else' ) {
+				try {
 				cast( lStack.first().template, IfTemplate).setElseBlock();
+				} catch ( e :Dynamic  ) {
+					throw 'else tokken must follow if (following ' + Type.getClassName(Type.getClass(lStack.first().template)) + ')';
+				}
 			}
 			
 			// Compile instruction
@@ -88,40 +113,39 @@ class Compiler {
 		
 		// TODO : explain
 		if ( lStack.length != 1 )
-			throw 'parsing failed';
+			throw 'parsing failed, missing closing token '+lStack.first().end_tokken;
 		
 		return lStack.first().template;
 	}
 	
 	public function compileInstruction( s :String) :BlockHeader {
 		
-		s = s.replace( ' ', '');
+		//s = s.replace( ' ', '');
 		
-		if ( s.startsWith('if(') && s.endsWith(')')  ) {
-			var s = s.substring(3, s.length - 1);
+		if ( s.startsWith('if ') ||  s.startsWith('if(')  ) {
+			var s = s.substring(2 );
 			return {
 				end_tokken: _ENDIF,
 				template: new IfTemplate( 
-					cast compileExpression( s )
+					cast compileExpression( s ) // TODO : compile bool expression only
 				),
 			};
 		}
 		
-		if ( s.startsWith('for(') && s.endsWith(')')  ) {
-			var s = s.substring(4, s.length - 1);
-			var a = s.split('in');
+		if ( s.startsWith('for ') || s.startsWith('for(') ) {
+			var s = s.substring( 3 ).trim();
+			if ( s.startsWith('(') && s.endsWith(')') )
+				s = s.substring( 1, s.length - 1 ).trim();
+			var a = s.split(' in ');
 			// TODO  validate a
 			return {
 				end_tokken: _ENDFOR,
 				template: new ForTemplate( 
-					cast compileExpression( a[1] ),
-					a[0]
+					cast compileExpression( a[1].trim() ),
+					a[0].trim()
 				),
 			};
 		}
-		
-		
-		
 		
 		return null;
 		// TODO : handle else
@@ -135,7 +159,10 @@ class Compiler {
 	}
 	
 	public function compileSubRender( s :String ) :ITemplate {
-		return new SubRendererTemplate( _oView.getTemplate(s) );
+		var oTemplate = _oView.getTemplate(s.trim());
+		if ( oTemplate == null )
+			throw 'Missing template "' + s + '" for render instruction';
+		return new SubRendererTemplate( oTemplate );
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {
@@ -151,12 +178,40 @@ class Compiler {
 	}
 	*/	
 	public function compileExpression( s :String ) :IFunction<Dynamic,Dynamic> {
+		s = s.trim();
+		// Case : const
+		switch( s ) {
+			case 'null' : return new Const( null ); //TODO : re-use same instance
+		}
 		
+		for ( oOperator in _aOperator ) {
+			var a = s.split( oOperator.getTokken() );
+			if ( a.length > 2 )
+				throw 'not implemented yet';
+			if ( a.length == 1 )
+				continue;
+			var aChild = a.map(function( s ) { return compileExpression(s); });
+			return oOperator.createItem( aChild );
+		}
 		return new VPathAccessor(s);
 	}
 	
 	
 }
+
+class Const implements IFunction<Dynamic,Dynamic> {
+    
+	var _o :Dynamic;
+	
+    public function new( o :Dynamic ) {
+        _o = o;
+    }
+    
+    public function apply( o :Dynamic ) {
+        return _o;
+    }
+}
+
 
 class TemplateString implements ITemplate {
 	var _s :String;
@@ -176,3 +231,96 @@ class VPathAccessorProxy extends IFunction<Dynamic,Dynamic> {
 		return 
 	}
 }*/
+
+
+interface IOperator {
+    
+    public function getTokken() :String;
+	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) :IFunction<Dynamic,Dynamic>;
+}
+
+class UnaryOperator implements IOperator {
+	var _s :String;
+	var _fn :Dynamic->Dynamic;
+	
+    public function new( s :String, fn :Dynamic->Dynamic ) {
+        _s = s;
+    }
+	public function getTokken() { return _s; };
+	
+	public function getCallback() {
+		return _fn;
+	}
+	
+	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) {
+		return new UnaryOperatorItem( this, aChildren ); 
+	};
+}
+class Operator implements IOperator {
+	var _s :String;
+	var _fn :Dynamic->Dynamic->Dynamic;
+    public function new( s :String, fn :Dynamic->Dynamic->Dynamic ) {
+        _s = s;
+		_fn = fn;
+    }
+	public function getTokken() { return _s; };
+	
+	public function getCallback() {
+		return _fn;
+	}
+	
+	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) {
+		return new OperatorItem( this, aChildren ); 
+	};
+}
+
+class UnaryOperatorItem implements IFunction<Dynamic,Dynamic> {
+	var _oOperator :UnaryOperator;
+	var _aChildren :Array<IFunction<Dynamic,Dynamic>>;
+	
+	public function new( 
+		oOperator :UnaryOperator, 
+		aChildren :Array<IFunction<Dynamic,Dynamic>>
+	) {
+		_oOperator = oOperator;
+		_aChildren = aChildren;// TODO : assert length
+	}
+	
+	public function apply( o :Dynamic ) {
+		var fn = _oOperator.getCallback();
+		return fn( _aChildren[0].apply( o ) ); 
+	};
+}
+
+class OperatorItem implements IFunction<Dynamic,Dynamic> {
+	var _oOperator :Operator;
+	var _aChildren :Array<IFunction<Dynamic,Dynamic>>;
+	
+	public function new( 
+		oOperator :Operator, 
+		aChildren :Array<IFunction<Dynamic,Dynamic>>
+	) {
+		_oOperator = oOperator;
+		_aChildren = aChildren;// TODO : assert length
+	}
+	
+	public function apply( o :Dynamic ) {
+		var fn = _oOperator.getCallback();
+		return fn( _aChildren[0].apply( o ), _aChildren[1].apply( o ) ); 
+	};
+}
+
+//class Test {
+//
+   //
+    //static function main() {
+        //var s = 'text *( toto + titi )/ tutu';
+        //s = s.replace(' ','');
+        //s = s.replace('()','');
+        //var mFirst = _aOperator.map(function(o :Operator) { return o.toString()[0];});
+        //var sRegexp = _aOperator.map(function(o :Operator) { return o.toString();});
+        //var ergexp = new RegExp('('+sRegexp.join('|')+')');
+        //ergexp.
+        //trace(s);
+    //}
+//}

@@ -1,11 +1,9 @@
 package unveil.loader;
-import js.html.XMLHttpRequest;
+import js.lib.Promise;
 
 /**
  * @author 
  */
 interface ILoader<C> {
-	public function load() :Void;
-	public function getData() :C;
-	public function onLoad( fn :ILoader<C>->Void ) :Void;
+	public function load() :Promise<C>;
 }
