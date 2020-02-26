@@ -9,9 +9,10 @@ import js.lib.Promise;
 import sweet.functor.builder.IBuilder;
 
 typedef PageHandle = {
+	var id :String;
 	var path_pattern :RegExp;
 	var page_data :Dynamic;
-	var model_load :StringMap<IBuilder<Dynamic,Dynamic>>;
+	var model_load :Array<String>;
 }
 
 /**
@@ -25,12 +26,15 @@ class PageController implements IController {
 	var _mPathToPage :StringMap<PageHandle>;
 	var _oCurrentPageWrapper :Element;
 	
+	
+//_____________________________________________________________________________
+// Constructor
+	
 	public function new( 
-		mPathToPage :StringMap<PageHandle>, 
 		oModel :Model,
 		oView :View
 	) {
-		_mPathToPage = mPathToPage;
+		_mPathToPage = new StringMap<PageHandle>();
 		_oModel = oModel;
 		_oView = oView;
 		_oCurrentPageWrapper = null;
@@ -40,12 +44,29 @@ class PageController implements IController {
 		
 	}
 	
+//_____________________________________________________________________________
+// Accessor
+	
+	public function getModel() {
+		return _oModel;
+	}
+
+//_____________________________________________________________________________
+// Modifier
+	
+	public function addPageHandler( o :PageHandle ) {
+		_mPathToPage.set( o.id, o );
+	}
+
+//_____________________________________________________________________________
+// Process
+
 	public function handleClickEvent( event :Event ) {
 		
 		// Handle link click
 		// TODO : make sure to have the least priority on click event
 		// TODO : handle form
-		var oTarget :DOMElement = cast event.originalTarget;
+		var oTarget :DOMElement = cast event.target;
 		if ( !Std.is( oTarget, DOMElement ) )
 			return;
 		if ( oTarget.hasAttribute('href') ) {
@@ -57,6 +78,13 @@ class PageController implements IController {
 		//trace(js.Browser.location);
     }
 	
+	public function gotoRoute( sKey :String ) {
+		if ( !_mPathToPage.exists(sKey) )
+			throw 'missing page "' + sKey + '"';
+		
+		_goto( _mPathToPage.get( sKey ) );
+	}
+	
 	public function goto( sPath :String ) {
 		
 		// Get page key
@@ -66,48 +94,61 @@ class PageController implements IController {
 			var o = oPageHandle.path_pattern.exec( sPath );
 			if ( o == null )
 				continue;
-			// TODO : put route param somewhere 
-			sPageKey = sKey;
+			if ( o.length > 1 ) {
+				oPageHandle.page_data.route = {id: oPageHandle.id, param: o.slice(1), };
+			}
 			oPageHandleCurrent = oPageHandle;
 		}
 		
 		// Case : page not found
-		if ( sPageKey == null )
-			sPageKey = 'not_found';
+		if ( oPageHandleCurrent == null ) {
+			oPageHandleCurrent = _mPathToPage.get('not_found');
+		}
 		
+		_goto(oPageHandleCurrent);
+	}
+	
+	//public function getUrl( oPageHandle :PageHandle ) {
+		//return oPageHandle.;
+	//}
+	
+	function _goto( oPageHandle :PageHandle ) {
 		// Load model part
 		//TODO : show loading style
-		if (  oPageHandleCurrent.model_load == null )
-			oPageHandleCurrent.model_load = cast  new StringMap<Dynamic>();
-		var aPromise = [for ( s in oPageHandleCurrent.model_load.keys() ) _oModel.loadEntity( s )];
+		if (  oPageHandle.model_load == null )
+			oPageHandle.model_load = new Array<String>();
+		var aPromise = [for ( s in oPageHandle.model_load ) _oModel.loadEntity( s )];
 		
 		Promise.all(aPromise).then(function( oValue :Array<Dynamic> ) {
 			
+			if ( oPageHandle.page_data == null )
+				oPageHandle.page_data = {};
+			
+			//oPageHandle.page_data.route = sPageKey;
+			
 			// Update view data
-			if ( oPageHandleCurrent.page_data == null )
-				oPageHandleCurrent.page_data = {};
-			for ( s => o in oPageHandleCurrent.model_load ) {
+			if ( oPageHandle.page_data == null )
+				oPageHandle.page_data = {};
+			for ( s in oPageHandle.model_load ) {
 				Reflect.setField( 
-					oPageHandleCurrent.page_data, 
-					s, o.create( _oModel.getEntity( s ) ) 
+					oPageHandle.page_data, 
+					s, _oModel.getEntity( s ) 
 				);
 			}
 			
-			// Push state
+			// Push previous state
 			js.Browser.window.history.pushState(
 				{id: 0},
 				"hellototo",
-				js.Browser.location.protocol+'//'+ js.Browser.location.hostname+':'+ js.Browser.location.port + sPath
+				js.Browser.location.href
 			);
 			
 			if ( _oCurrentPageWrapper != null )
 				_oCurrentPageWrapper.remove();
 			
-			_oView.setPageData( oPageHandleCurrent.page_data );
-			_oCurrentPageWrapper = _oView.diplay( sPageKey );
+			_oView.setPageData( oPageHandle.page_data );
+			_oCurrentPageWrapper = _oView.diplay( oPageHandle.id );
 		});
-		
-		
 	}
 	
 }

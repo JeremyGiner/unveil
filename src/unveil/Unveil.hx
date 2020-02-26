@@ -29,7 +29,7 @@ class Unveil {
 	
 	public function new( 
 		mModel :StringMap<Dynamic>,
-		mPageHandle :StringMap<PageHandle>, 
+		mPageHandle :Array<PageHandle>, 
 		aTemplate :Array<TemplateItem> 
 	) {
 		_oModel = new Model();
@@ -45,7 +45,8 @@ class Unveil {
 		}
 		
 		
-		_oPageController = new PageController( mPageHandle, _oModel, _oView );
+		_oPageController = new PageController( _oModel, _oView );
+		for ( o in mPageHandle ) _oPageController.addPageHandler(o);
 		_oPageController.goto( Browser.location.pathname );
 	}
 

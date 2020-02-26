@@ -2,6 +2,7 @@ package unveil.loader;
 import haxe.Json;
 import js.html.XMLHttpRequest;
 import unveil.loader.LoaderXhr.Pair;
+import sweet.functor.IFunction;
 
 
 /**
@@ -14,10 +15,11 @@ class LoaderXhrJson extends LoaderXhr {
 		sMethod :String,
 		sUri :String,
 		aHeader :Array<Pair<String>>,
-		oBody :Dynamic
+		oBody :Dynamic,
+		oResponseHandler :IFunction<XMLHttpRequest,Dynamic> = null
 	) {
 		aHeader.push({left: "Content-Type", right: "application/json"});
-		super(sMethod, sUri, aHeader, Json.stringify( oBody ) );
+		super(sMethod, sUri, aHeader, Json.stringify( oBody ), oResponseHandler );
 	}
 	
 }
