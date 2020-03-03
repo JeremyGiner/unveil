@@ -20,6 +20,7 @@ class LoaderXhr extends ALoader<Dynamic> {
 	var _aHeader :Array<Pair<String>>;
 	var _sBody :String;
 	var _oResponseHandler :IFunction<XMLHttpRequest,Dynamic>;
+	var _eResponseType :XMLHttpRequestResponseType;
 	
 	
 	public function new( 
@@ -27,7 +28,8 @@ class LoaderXhr extends ALoader<Dynamic> {
 		sUri :String,
 		aHeader :Array<Pair<String>>,
 		sBody :String,
-		oResponseHandler :IFunction<XMLHttpRequest,Dynamic> = null
+		oResponseHandler :IFunction<XMLHttpRequest,Dynamic> = null,
+		eResponseType :XMLHttpRequestResponseType = XMLHttpRequestResponseType.TEXT
 	) {
 		super();
 		
@@ -36,11 +38,12 @@ class LoaderXhr extends ALoader<Dynamic> {
 		_aHeader = aHeader;
 		_sBody = sBody;
 		_oResponseHandler = oResponseHandler;
+		_eResponseType = eResponseType;
 	}
 	
 	override public function callback(resolve:String->Void, reject:Dynamic->Void) {
 		var oReq = new XMLHttpRequest();
-		oReq.responseType = XMLHttpRequestResponseType.ARRAYBUFFER;
+		oReq.responseType = _eResponseType;
 		oReq.onreadystatechange = function() {
 			// Only run if the request is complete
 			if (oReq.readyState != 4) return;

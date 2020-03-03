@@ -26,20 +26,32 @@ class Model {
 		return _mEntity.get(s);
 	}
 	public function loadEntity( s :String ) :Promise<Dynamic> {
-		// TODO
-		// try cache, try 
 		
 		// Case : does not exist
 		if ( !_mEntity.exists(s) )
 			return Promise.reject(s);
+		// TODO
+		// try cache, try 
+		
+		var oEntity = _mEntity.get(s);
+
+		// Case : already loading
+		if ( Std.is(oEntity, Promise) )
+			return oEntity;
+		
+		// Case : load
+		if ( Std.is(oEntity, ILoader) ) {
+			var oLoader :ILoader<Dynamic> = cast oEntity;
+			var oPromise = oLoader.load();
+			setEntity(s, oPromise);
+			oPromise.then(function( oValue :Dynamic ) { setEntity( s, oValue ); });
+			return oPromise;
+		}
 		
 		// Case : already loaded
-		var oEntity = _mEntity.get(s);
-		if ( !Std.is(oEntity, ILoader) )
-			return Promise.resolve( oEntity );
+		return Promise.resolve( oEntity );
 		
-		var oLoader :ILoader<Dynamic> = cast oEntity;
-		return oLoader.load().then(function( oValue :Dynamic ) { setEntity( s, oValue ); });
+		
 		
 	}
 }
