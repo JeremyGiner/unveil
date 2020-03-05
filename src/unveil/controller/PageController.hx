@@ -1,5 +1,7 @@
 package unveil.controller;
+import haxe.Json;
 import haxe.ds.StringMap;
+import js.Browser;
 import js.html.DOMElement;
 import js.html.Event;
 import js.html.Element;
@@ -7,6 +9,7 @@ import js.lib.RegExp;
 import unveil.Model;
 import js.lib.Promise;
 import sweet.functor.builder.IBuilder;
+import js.html.URL;
 
 typedef PageHandle = {
 	var id :String;
@@ -41,7 +44,9 @@ class PageController implements IController {
 		// listen click link
 		
 		js.Browser.document.addEventListener( 'click', handleClickEvent );
-		
+		Browser.window.onpopstate = function( event ) {
+			goto( Browser.document.location.pathname );
+		}
 	}
 	
 //_____________________________________________________________________________
@@ -78,13 +83,6 @@ class PageController implements IController {
 		//trace(js.Browser.location);
     }
 	
-	public function gotoRoute( sKey :String ) {
-		if ( !_mPathToPage.exists(sKey) )
-			throw 'missing page "' + sKey + '"';
-		
-		_goto( _mPathToPage.get( sKey ) );
-	}
-	
 	public function goto( sPath :String ) {
 		
 		// Get page key
@@ -105,14 +103,21 @@ class PageController implements IController {
 			oPageHandleCurrent = _mPathToPage.get('not_found');
 		}
 		
-		_goto(oPageHandleCurrent);
+		
+		_goto(
+			oPageHandleCurrent, 
+			js.Browser.location.protocol + '//'
+			+ js.Browser.location.hostname
+			+':' + js.Browser.location.port 
+			+ sPath
+		);
 	}
 	
-	//public function getUrl( oPageHandle :PageHandle ) {
+	//public func+tion getUrl( oPageHandle :PageHandle ) {
 		//return oPageHandle.;
 	//}
 	
-	function _goto( oPageHandle :PageHandle ) {
+	function _goto( oPageHandle :PageHandle, sFullPath :String ) {
 		// Load model part
 		//TODO : show loading style
 		if (  oPageHandle.model_load == null )
@@ -140,7 +145,7 @@ class PageController implements IController {
 			js.Browser.window.history.pushState(
 				{id: 0},
 				"hellototo",
-				js.Browser.location.href
+				sFullPath
 			);
 			
 			if ( _oCurrentPageWrapper != null )
