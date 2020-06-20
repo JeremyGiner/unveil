@@ -2,26 +2,37 @@ package unveil.loader;
 import haxe.Json;
 import js.html.XMLHttpRequest;
 import js.html.XMLHttpRequestResponseType;
-import unveil.loader.LoaderXhr.Pair;
+import sweet.functor.builder.FactoryCloner;
 import sweet.functor.IFunction;
+import sweet.functor.builder.IFactory;
+import unveil.loader.ALoaderXhr.Pair;
 
 
 /**
  * ...
  * @author ...
  */
-class LoaderXhrJson extends LoaderXhr {
-
+class LoaderXhrJson extends ALoaderXhr {
+	
+	var _oBodyFactory :IFactory<Dynamic>;
+	
 	public function new( 
 		sMethod :String,
 		sUri :String,
 		aHeader :Array<Pair<String>>,
-		oBody :Dynamic,
+		oBodyFactory :IFactory<Dynamic>,
 		oResponseHandler :IFunction<XMLHttpRequest,Dynamic> = null,
 		eResponseType :XMLHttpRequestResponseType = XMLHttpRequestResponseType.TEXT
 	) {
 		aHeader.push({left: "Content-Type", right: "application/json"});
-		super(sMethod, sUri, aHeader, Json.stringify( oBody ), oResponseHandler, eResponseType );
+		super(sMethod,sUri,aHeader,oResponseHandler,eResponseType);
+		
+		_oBodyFactory = oBodyFactory;
+	}
+	
+	
+	override public function getBody() :String {
+		return Json.stringify(_oBodyFactory.create());
 	}
 	
 }
