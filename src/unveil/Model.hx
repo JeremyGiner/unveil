@@ -1,7 +1,14 @@
 package unveil;
 import haxe.ds.StringMap;
+import js.Promise.PromiseHandler;
 import js.lib.Promise;
 import unveil.loader.ILoader;
+
+typedef Model_EntityHandler = {
+	var loader :ILoader<Dynamic>;
+	var cache :Dynamic;
+	var cache_policy :Bool;
+}
 
 /**
  * ...
@@ -9,47 +16,68 @@ import unveil.loader.ILoader;
  */
 class Model {
 
-	var _mEntity :StringMap<Dynamic>;
+	var _mEntityHandler :StringMap<Model_EntityHandler>;
 	
 	public function new() {
 		// todo create loader
 		
-		_mEntity = new StringMap<Dynamic>();
+		_mEntityHandler = new StringMap<Model_EntityHandler>();
 	}
-	
+	/**
+	 * 
+	 * @param	s
+	 * @param	o
+	 * @param	bCachePolicy  if false: cache refresh on load
+	 */
+	public function setEntityLoader( s :String, o :ILoader<Dynamic>, bCachePolicy :Bool = true ) {
+		_mEntityHandler.set( s, {loader: o, cache: null, cache_policy: bCachePolicy } );
+	}
 	public function setEntity( s :String, o :Dynamic ) {
-		_mEntity.set( s, o );
+		_mEntityHandler.set( s, {loader:null, cache: o, cache_policy: true } );
 	}
 	
 	public function getEntity( s :String ) :Dynamic {
-		//TODO : throw on inexistant? 
-		return _mEntity.get(s);
+		if( !_mEntityHandler.exists(s) )
+			return null;
+		return _mEntityHandler.get(s).cache;
 	}
 	public function loadEntity( s :String ) :Promise<Dynamic> {
 		
 		// Case : does not exist
-		if ( !_mEntity.exists(s) )
+		if ( !_mEntityHandler.exists(s) )
 			return Promise.reject(s);
 		// TODO
 		// try cache, try 
 		
-		var oEntity = _mEntity.get(s);
+		var oEntityHandler = _mEntityHandler.get(s);
 
 		// Case : already loading
-		if ( Std.is(oEntity, Promise) )
-			return oEntity;
+		if ( Std.is(oEntityHandler.cache, Promise) )
+			return oEntityHandler.cache;
 		
 		// Case : load
-		if ( Std.is(oEntity, ILoader) ) {
-			var oLoader :ILoader<Dynamic> = cast oEntity;
+		if ( 
+			oEntityHandler.loader != null 
+			&& (
+				oEntityHandler.cache == null 
+				|| oEntityHandler.cache_policy == false
+			)
+		) {
+			var oLoader :ILoader<Dynamic> = oEntityHandler.loader;
 			var oPromise = oLoader.load();
-			setEntity(s, oPromise);
-			oPromise.then(function( oValue :Dynamic ) { setEntity( s, oValue ); });
+			
+			oEntityHandler.cache = oPromise;
+			
+			oPromise.then(function( oValue :Dynamic ) {
+				oEntityHandler.cache = oValue;
+			}).catchError(function(onRejected :PromiseHandler<Dynamic, Array<Dynamic>> ) {
+				oEntityHandler.cache = null;
+			});
 			return oPromise;
 		}
 		
 		// Case : already loaded
-		return Promise.resolve( oEntity );
+		return Promise.resolve( oEntityHandler.cache );
 		
 		
 		

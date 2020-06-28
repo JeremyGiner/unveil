@@ -1,5 +1,6 @@
 package unveil.controller;
 import haxe.Json;
+import haxe.Timer;
 import haxe.ds.StringMap;
 import js.Browser;
 import js.html.DOMElement;
@@ -28,6 +29,8 @@ class PageController implements IController {
 	var _oView :View;
 	var _mPathToPage :StringMap<PageHandle>;
 	var _oCurrentPageWrapper :Element;
+	
+	var _sRouteParamKey = '_route';
 	
 	
 //_____________________________________________________________________________
@@ -92,9 +95,13 @@ class PageController implements IController {
 			var o = oPageHandle.path_pattern.exec( sPath );
 			if ( o == null )
 				continue;
-			if ( o.length > 1 ) {
-				oPageHandle.page_data.route = {id: oPageHandle.id, param: o.slice(1), };
-			}
+				
+			_oModel.setEntity(_sRouteParamKey, {
+				id: oPageHandle.id, 
+				param: ( o.length > 1 ) ? o.slice(1) : null,
+			});
+			
+			oPageHandle.path_pattern.lastIndex = 0;
 			oPageHandleCurrent = oPageHandle;
 		}
 		
@@ -124,7 +131,9 @@ class PageController implements IController {
 			oPageHandle.model_load = new Array<String>();
 		var aPromise = [for ( s in oPageHandle.model_load ) _oModel.loadEntity( s )];
 		
-		Promise.all(aPromise).then(function( oValue :Array<Dynamic> ) {
+		
+		
+		var oPromiseLoader = Promise.all(aPromise).then(function( oValue :Array<Dynamic> ) {
 			
 			if ( oPageHandle.page_data == null )
 				oPageHandle.page_data = {};
@@ -151,9 +160,22 @@ class PageController implements IController {
 			if ( _oCurrentPageWrapper != null )
 				_oCurrentPageWrapper.remove();
 			
+			trace(oPageHandle.page_data);
 			_oView.setPageData( oPageHandle.page_data );
 			_oCurrentPageWrapper = _oView.diplay( oPageHandle.id );
 		});
+		
+		// Reject on timeout
+		var oPromiseTimeout = new Promise(function(resolve:Dynamic->Void, reject:Dynamic->Void) {
+			Timer.delay(function() {
+				reject('Timeout');
+			}, 10000 ); // 10s
+		});
+		Promise.race( [oPromiseTimeout, oPromiseLoader] )
+			.catchError(function( onRejected :PromiseHandler<Dynamic, Array<Dynamic>> ){
+				trace('Assume : timeout');
+			}
+		);
 	}
 	
 }

@@ -2,7 +2,7 @@ package unveil.loader;
 import js.html.XMLHttpRequest;
 import sweet.functor.IFunction;
 import sweet.functor.builder.IFactory;
-import unveil.loader.LoaderDefault;
+import unveil.loader.ALoader;
 import js.html.XMLHttpRequestResponseType;
 
 typedef Pair<C> = {
@@ -14,12 +14,11 @@ typedef Pair<C> = {
  * ...
  * @author ...
  */
-class ALoaderXhr extends ALoader<Dynamic> {
+class ALoaderXhr<C> extends ALoader<C> {
 
 	var _sMethod :String;
 	var _sUri :String;
 	var _aHeader :Array<Pair<String>>;
-	var _oResponseHandler :IFunction<XMLHttpRequest,Dynamic>;
 	var _eResponseType :XMLHttpRequestResponseType;
 	
 	
@@ -27,7 +26,6 @@ class ALoaderXhr extends ALoader<Dynamic> {
 		sMethod :String,
 		sUri :String,
 		aHeader :Array<Pair<String>>,
-		oResponseHandler :IFunction<XMLHttpRequest,Dynamic> = null,
 		eResponseType :XMLHttpRequestResponseType = XMLHttpRequestResponseType.TEXT
 	) {
 		super();
@@ -35,11 +33,10 @@ class ALoaderXhr extends ALoader<Dynamic> {
 		_sMethod = sMethod;
 		_sUri = sUri;
 		_aHeader = aHeader;
-		_oResponseHandler = oResponseHandler;
 		_eResponseType = eResponseType;
 	}
 	
-	override public function callback(resolve:String->Void, reject:Dynamic->Void) {
+	override public function callback(resolve:C->Void, reject:Dynamic->Void) {
 		var oReq = new XMLHttpRequest();
 		oReq.responseType = _eResponseType;
 		oReq.onreadystatechange = function() {
@@ -49,12 +46,10 @@ class ALoaderXhr extends ALoader<Dynamic> {
 			// Process the response
 			if (oReq.status >= 200 && oReq.status < 300) {
 				// If successful
-				if ( _oResponseHandler != null )
-					return resolve(_oResponseHandler.apply( oReq ));
-				return resolve( oReq.responseText );
+				return resolve( handleResponse( oReq ) );
 			} else {
 				// If failed
-				reject({
+				return reject({
 					status: oReq.status,
 					statusText: oReq.statusText
 				});
@@ -69,6 +64,11 @@ class ALoaderXhr extends ALoader<Dynamic> {
 			//oReq.setRequestHeader("Content-Type", "application/json");
 		//oReq.send( Json.stringify( untyped _this.payload.innerHTML) );
 		oReq.send( getBody() );
+	}
+	
+	public function handleResponse( oReq :XMLHttpRequest ) :C {
+		throw 'override me';
+		return null;
 	}
 	
 	public function getBody() :String {
