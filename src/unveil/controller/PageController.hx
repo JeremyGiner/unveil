@@ -28,7 +28,6 @@ class PageController implements IController {
 	var _oModel :Model;
 	var _oView :View;
 	var _mPathToPage :StringMap<PageHandle>;
-	var _oCurrentPageWrapper :Element;
 	
 	var _sRouteParamKey = '_route';
 	
@@ -43,7 +42,6 @@ class PageController implements IController {
 		_mPathToPage = new StringMap<PageHandle>();
 		_oModel = oModel;
 		_oView = oView;
-		_oCurrentPageWrapper = null;
 		// listen click link
 		
 		js.Browser.document.addEventListener( 'click', handleClickEvent );
@@ -157,12 +155,9 @@ class PageController implements IController {
 				sFullPath
 			);
 			
-			if ( _oCurrentPageWrapper != null )
-				_oCurrentPageWrapper.remove();
-			
 			trace(oPageHandle.page_data);
 			_oView.setPageData( oPageHandle.page_data );
-			_oCurrentPageWrapper = _oView.diplay( oPageHandle.id );
+			_oView.diplay( oPageHandle.id );
 		});
 		
 		// Reject on timeout

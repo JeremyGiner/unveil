@@ -77,27 +77,19 @@ class View {
 		if ( !_mTemplate.exists(sPageKey) )
 			throw 'template '+sPageKey+' does not exist';
 		
-		// Display loading placeholder
-		// Acquire all loader from model
-		var aLoader = [];
-		// Case : no loader render immediatly
-		if ( aLoader.length == 0 ) {
-			
-		}
-		
 		var oTemplate = _mTemplate.get(sPageKey);
 		
 		// Get wrapper
+		/*
 		var oWrapper = js.Browser.document.getElementById( sPageKey );
 		if( oWrapper == null ) {
 			oWrapper = js.Browser.document.createElement('div');
 			oWrapper.id = sPageKey;
 			js.Browser.document.body.append( oWrapper );
 		}
+		*/
 		
 		// Render
-		oWrapper.innerHTML = oTemplate.render(_oContext).toString();
-		
-		return oWrapper;
+		js.Browser.document.body.innerHTML = oTemplate.render(_oContext).toString();
 	}
 }

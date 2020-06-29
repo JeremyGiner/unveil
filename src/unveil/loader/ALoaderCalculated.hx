@@ -1,4 +1,5 @@
 package unveil.loader;
+import js.Promise.PromiseHandler;
 import js.html.XMLHttpRequest;
 import unveil.Model;
 import unveil.loader.ALoader;
@@ -32,7 +33,7 @@ class ALoaderCalculated<C> extends ALoader<C> {
 			aPromise.push( _oModel.loadEntity(s) );
 		Promise.all( aPromise ).then(function( a :Array<Dynamic> ) {
 			resolve(calc( a )); 
-		});
+		}).catchError(reject);
 	}
 	
 	public function calc( a :Array<Dynamic> ) :C {
