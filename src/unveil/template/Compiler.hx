@@ -21,6 +21,9 @@ class Compiler {
 	static var _ENDIF = 'endif';
 	static var _ENDFOR = 'endfor';
 	
+	static var _REGEXP_INTEGER = ~/^\d+$/;
+	static var _REGEXP_FLOAT = ~/^[\d.]+$/;
+	
 	static var _aUnaryOperator = [
         new UnaryOperator('!',function(a :Bool){ return !a;}),
         new UnaryOperator('-',function(a :Dynamic){ return -a;}),
@@ -80,6 +83,7 @@ class Compiler {
 			if ( s == 'else' ) {
 				try {
 				cast( lStack.first().template, IfTemplate).setElseBlock();
+				continue;
 				} catch ( e :Dynamic  ) {
 					throw 'else tokken must follow if (following ' + Type.getClassName(Type.getClass(lStack.first().template)) + ')';
 				}
@@ -184,6 +188,13 @@ class Compiler {
 			case 'null' : return new Const( null ); //TODO : re-use same instance
 		}
 		
+		if ( _REGEXP_INTEGER.match( s ) ) 
+			return new Const( Std.parseInt(s) );
+		if ( _REGEXP_FLOAT.match( s ) ) 
+			return new Const( Std.parseFloat(s) );
+		
+		
+		// 
 		for ( oOperator in _aOperator ) {
 			var a = s.split( oOperator.getTokken() );
 			if ( a.length > 2 )
