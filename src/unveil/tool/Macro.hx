@@ -13,6 +13,11 @@ class Macro {
 		for ( sFileName in aFile ) {
 			
 			var sResName = Path.withoutExtension(sFileName);
+			
+			// Case : directory
+			if ( FileSystem.isDirectory( Path.join([s,sFileName]) ) )
+				continue;//TODO: recursive
+			
 			Context.addResource( sResName, File.getBytes(Path.join([s,sFileName])) );
 		}
 		

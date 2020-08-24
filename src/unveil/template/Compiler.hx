@@ -117,7 +117,7 @@ class Compiler {
 		
 		// TODO : explain
 		if ( lStack.length != 1 )
-			throw 'parsing failed, missing closing token '+lStack.first().end_tokken;
+			throw 'parsing failed, missing closing token '+lStack.first().end_tokken + '  near '+s;
 		
 		return lStack.first().template;
 	}
@@ -141,7 +141,20 @@ class Compiler {
 			if ( s.startsWith('(') && s.endsWith(')') )
 				s = s.substring( 1, s.length - 1 ).trim();
 			var a = s.split(' in ');
-			// TODO  validate a
+			if ( a.length != 2 )
+				throw 'Expected for {string} in {string}, in not found';
+			// Case : key value
+			var aKeyValueExp = a[0].split(' => ');
+			if ( aKeyValueExp.length == 2 ) {
+				return {
+					end_tokken: _ENDFOR,
+					template: new ForKeyValueTemplate( 
+						cast compileExpression( a[1].trim() ),
+						aKeyValueExp[0].trim(),
+						aKeyValueExp[1].trim()
+					),
+				};
+			}
 			return {
 				end_tokken: _ENDFOR,
 				template: new ForTemplate( 
@@ -163,10 +176,8 @@ class Compiler {
 	}
 	
 	public function compileSubRender( s :String ) :ITemplate {
-		var oTemplate = _oView.getTemplate(s.trim());
-		if ( oTemplate == null )
-			throw 'Missing template "' + s + '" for render instruction';
-		return new SubRendererTemplate( oTemplate );
+		
+		return new SubRendererTemplate( _oView, s.trim() );
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {
