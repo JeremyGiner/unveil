@@ -131,7 +131,7 @@ class PageController implements IController {
 		
 		
 		
-		var oPromiseLoader = Promise.all(aPromise).then(function( oValue :Array<Dynamic> ) {
+		var oPromiseLoader = Promise.all(aPromise).then(function( oValue :Array<Dynamic> ) :Dynamic {
 			
 			if ( oPageHandle.page_data == null )
 				oPageHandle.page_data = {};
@@ -155,20 +155,24 @@ class PageController implements IController {
 				sFullPath
 			);
 			
-			trace(oPageHandle.page_data);
 			_oView.setPageData( oPageHandle.page_data );
-			_oView.diplay( oPageHandle.id );
+			try{ 
+				_oView.diplay( oPageHandle.id );
+			} catch ( e :Dynamic ) {
+				return Promise.reject( e );
+			}
+			return oValue;
 		});
 		
 		// Reject on timeout
 		var oPromiseTimeout = new Promise(function(resolve:Dynamic->Void, reject:Dynamic->Void) {
 			Timer.delay(function() {
-				reject('Timeout');
+				reject('Model loading timeout');
 			}, 10000 ); // 10s
 		});
 		Promise.race( [oPromiseTimeout, oPromiseLoader] )
 			.catchError(function( onRejected :PromiseHandler<Dynamic, Array<Dynamic>> ){
-				trace('Assume : timeout');
+				trace( onRejected );
 			}
 		);
 	}

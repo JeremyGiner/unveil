@@ -7,6 +7,7 @@ import unveil.template.ITemplate;
 import haxe.ds.StringMap;
 import js.lib.RegExp;
 import unveil.controller.PageController;
+import unveil.loader.ILoader;
 
 typedef Route = {
 	var path_pattern :RegExp;
@@ -34,7 +35,10 @@ class Unveil {
 	) {
 		_oModel = new Model();
 		for ( s => o in mModel )
-			_oModel.setEntity( s, o );
+			if ( Std.is( o, ILoader ) )
+				_oModel.setEntityLoader( s, o, false );
+			else
+				_oModel.setEntity( s, o );
 		_oView = new View( _oModel );
 		
 		

@@ -24,7 +24,7 @@ class ForKeyValueTemplate extends CompositeTemplate {
 	override public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {
 		for ( k => v in _oExpression.apply( oContext ) ) {
 			var oCurrentContext = Reflect.copy(oContext);
-			Reflect.setField( oCurrentContext, _sVarName, k);
+			Reflect.setField( oCurrentContext, _sKeyName, k);
 			Reflect.setField( oCurrentContext, _sVarName, v);
 			oBuffer = super.render( oCurrentContext, oBuffer );
 		}
