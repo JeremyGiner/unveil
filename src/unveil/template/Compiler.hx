@@ -3,6 +3,7 @@ import sweet.functor.IFunction;
 import unveil.View;
 import unveil.tool.VPathAccessor;
 import unveil.template.ITemplate;
+import unveil.tool.StringTool;
 
 using StringTools;
 
@@ -23,6 +24,7 @@ class Compiler {
 	
 	static var _REGEXP_INTEGER = ~/^\d+$/;
 	static var _REGEXP_FLOAT = ~/^[\d.]+$/;
+	//static var _REGEXP_FLOAT = ~/^render *(\w+) *(with)? *({.*})?$/;
 	
 	static var _aUnaryOperator = [
         new UnaryOperator('!',function(a :Bool){ return !a;}),
@@ -89,15 +91,14 @@ class Compiler {
 				}
 			}
 			
-			// Compile instruction
-			var oBlockHeader = compileInstruction( s );
-			
-			
-			if ( s.startsWith('render(') && s.endsWith(')')  ) {
-				var s = s.substring(7, s.length - 1);
+			if ( s.startsWith('render')  ) {
+				
 				lStack.first().template.addPart( compileSubRender(s) );
 				continue;
 			}
+			
+			// Compile instruction
+			var oBlockHeader = compileInstruction( s );
 			
 			// Case : simple print var
 			if ( oBlockHeader == null ) {
@@ -176,8 +177,16 @@ class Compiler {
 	}
 	
 	public function compileSubRender( s :String ) :ITemplate {
+		var s = s.substring(7);
+				
+		s = ignoreParenthesis( s );// TODO : handle depth
 		
-		return new SubRendererTemplate( _oView, s.trim() );
+		var a = s.split(' with ');
+		
+		var oWidth = null;
+		if ( a.length == 2 ) 
+			oWidth = compileAnoStructure( a[1] );
+		return new SubRendererTemplate( _oView, a[0].trim(), oWidth );
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {
@@ -218,6 +227,46 @@ class Compiler {
 		return new VPathAccessor(s);
 	}
 	
+	//TODO : call compileAnoStructure with string "{toto: qsdqsd}" remvoe bracket
+	
+	public function compileAnoStructure( s :String ) :IFunction<Dynamic,Dynamic> {
+		s = s.trim();
+		s = StringTool.ltrim(s,'{');
+		s = StringTool.rtrim(s, '}');
+		var aField = s.split(',');// TODO : handle depth
+		
+		var aToto = [];
+		for ( sField in aField ) {
+			
+			sField = sField.trim();
+			
+			// Ignore empty
+			if ( sField.length == 0 ) continue;
+			
+			var aKeyValue = sField.split(':');
+			if ( aKeyValue.length != 2 )
+				throw 'expect "key: value", got "' + sField + '"';
+				
+			// 
+			var sKey = aKeyValue[0].trim();
+			// TODO: Validate key
+			
+			aToto.push({
+				name: sKey,
+				fn: compileExpression( aKeyValue[1].trim() ),
+			});
+		}
+		
+		return new AnnoStructure( aToto );
+	}
+	
+	// Temporary solution
+	static public function ignoreParenthesis( s :String ) {
+		s = s.replace( '(', ' ');
+		s = s.replace( ')', ' ');
+		return s;
+	}
+	
 	
 }
 
@@ -231,6 +280,26 @@ class Const implements IFunction<Dynamic,Dynamic> {
     
     public function apply( o :Dynamic ) {
         return _o;
+    }
+}
+
+typedef PairFieldFunction = {
+	var name :String;
+	var fn :IFunction<Dynamic,Dynamic>;
+}
+class AnnoStructure implements IFunction<Dynamic,Dynamic> {
+    
+	var _aField :Array<PairFieldFunction>; 
+	
+    public function new( aField :Array<PairFieldFunction> ) {
+        _aField = aField;
+    }
+    
+    public function apply( oContext :Dynamic ) {
+		var o = {};
+		for ( oField in _aField )
+			Reflect.setField(o, oField.name, oField.fn.apply( oContext ) );
+        return o;
     }
 }
 
