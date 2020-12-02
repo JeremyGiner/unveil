@@ -63,17 +63,17 @@ class Compiler {
 		var a = s.split('::');
 		for ( i in 0...a.length ) {
 			
+			// Case : pur string
+			if ( i % 2 == 0 ) {
+				lStack.first().template.addPart( new TemplateString( a[i] ) );
+				continue;
+			}
+			
 			var s = a[i].trim();
 			
 			// Filter empty string
 			if ( s == '' )
 				continue;
-			
-			// Case : pur string
-			if ( i % 2 == 0 ) {
-				lStack.first().template.addPart( new TemplateString( s ) );
-				continue;
-			}
 			
 			// Case : end block tokken
 			if ( s!= null && s == lStack.first().end_tokken ) {
@@ -190,7 +190,7 @@ class Compiler {
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {
-		return new PrintVarTemplate( new VPathAccessor( s ) );
+		return new PrintVarTemplate( compileExpression(s) );
 	}
 	/*
 	public function getOperatorPriority( s :String ) {
@@ -203,6 +203,7 @@ class Compiler {
 	*/	
 	public function compileExpression( s :String ) :IFunction<Dynamic,Dynamic> {
 		s = s.trim();
+		
 		// Case : const
 		switch( s ) {
 			case 'null' : return new Const( null ); //TODO : re-use same instance
