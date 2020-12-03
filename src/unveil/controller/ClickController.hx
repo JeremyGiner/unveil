@@ -14,6 +14,7 @@ class ClickController {
 	
 	public function new( sId :String ) {
 		_sId = sId;
+		_bProcessing = false;
 		Browser.document.addEventListener('click', process);
 	}
 	
