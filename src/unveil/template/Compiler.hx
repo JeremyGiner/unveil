@@ -186,7 +186,7 @@ class Compiler {
 		var oWidth = null;
 		if ( a.length == 2 ) 
 			oWidth = compileAnoStructure( a[1] );
-		return new SubRendererTemplate( _oView, a[0].trim(), oWidth );
+		return new SubRendererTemplate( _oView, cast compileExpression(a[0]), oWidth );
 	}
 	
 	public function compilePrintVar( s :String ) :ITemplate {
@@ -213,6 +213,9 @@ class Compiler {
 			return new Const( Std.parseInt(s) );
 		if ( _REGEXP_FLOAT.match( s ) ) 
 			return new Const( Std.parseFloat(s) );
+			
+		if ( s.charAt(0) == '\'')
+			return new Const( s.substr(1,s.length-2) );
 		
 		
 		// 

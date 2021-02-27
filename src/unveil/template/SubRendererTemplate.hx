@@ -8,12 +8,12 @@ import unveil.View;
  */
 class SubRendererTemplate implements ITemplate {
 	var _oView :View;
-	var _sTemplateKey :String;
+	var _oExpression :IFunction<Dynamic,String>;
 	var _oWith :IFunction<Dynamic,Dynamic>;
 	
-	public function new( oView :View, sTemplateKey :String, oWith :IFunction<Dynamic,Dynamic> ) {
+	public function new( oView :View, oExpression :IFunction<Dynamic,String>, oWith :IFunction<Dynamic,Dynamic> ) {
 		_oView = oView;
-		_sTemplateKey = sTemplateKey;
+		_oExpression = oExpression;
 		_oWith = oWith;
 	}
 	
@@ -22,6 +22,7 @@ class SubRendererTemplate implements ITemplate {
 		if ( _oWith != null )
 			oContext = _oWith.apply( oContext );
 		
+		var _sTemplateKey = _oExpression.apply( oContext );
 		var oTemplate = _oView.getTemplate( _sTemplateKey );
 		if ( oTemplate == null )
 			throw 'Missing template "' + _sTemplateKey + '" for render instruction';
