@@ -47,7 +47,7 @@ class FormController {
 		_m.get( oTarget.id ).apply( oForm );
     }
 	
-	static public function getInputMap( oForm :js.html.FormElement ) {
+	static public function getInputMap( oForm :js.html.FormElement ) :Dynamic {
 		var m = {};
 		
 		for ( i in 0...oForm.length ) {
