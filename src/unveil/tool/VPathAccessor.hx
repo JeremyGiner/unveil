@@ -1,5 +1,6 @@
 package unveil.tool;
 import sweet.functor.IFunction;
+import haxe.ds.StringMap;
 
 class VPathAccessor implements IFunction<Dynamic,Dynamic> {
     
@@ -23,11 +24,20 @@ class VPathAccessor implements IFunction<Dynamic,Dynamic> {
     
     function getAccess( o :Dynamic, sPathPart :String ) :Dynamic {
 		if( o == null )
-			throw sPathPart+' parent is null';
+			throw sPathPart + ' parent is null';
+		
+		// Case string map
+		if ( Std.is( o, StringMap ) )
+			return cast(o, StringMap<Dynamic>).get( sPathPart );
+		
         var oRes = Reflect.field( o, sPathPart );
-        if( Reflect.isFunction( oRes ) )
+        
+		// Case : method
+		if( Reflect.isFunction( oRes ) )
             oRes = Reflect.callMethod( o, oRes, [] );
-        return oRes;
+		
+		// Case : member
+		return oRes;
     }
     
     static public function parsePath( sPath :String ) {

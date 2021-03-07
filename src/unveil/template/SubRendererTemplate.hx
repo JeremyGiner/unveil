@@ -19,10 +19,14 @@ class SubRendererTemplate implements ITemplate {
 	
 	public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {
 		
+		// Get tamplate key
+		var _sTemplateKey = _oExpression.apply( oContext );
+		
+		// Change context
 		if ( _oWith != null )
 			oContext = _oWith.apply( oContext );
 		
-		var _sTemplateKey = _oExpression.apply( oContext );
+		// Get & render template
 		var oTemplate = _oView.getTemplate( _sTemplateKey );
 		if ( oTemplate == null )
 			throw 'Missing template "' + _sTemplateKey + '" for render instruction';

@@ -149,11 +149,13 @@ class PageController implements IController {
 			}
 			
 			// Push previous state
-			js.Browser.window.history.pushState(
-				{id: 0},
-				"hellototo",
-				sFullPath
-			);
+			try {
+				js.Browser.window.history.pushState(
+					{id: 0},
+					"hellototo",
+					sFullPath
+				);
+			} catch( e :Dynamic ) { /* Ignore */}
 			
 			_oView.setPageData( oPageHandle.page_data );
 			try{ 

@@ -19,9 +19,9 @@ import js.html.FormElement;
 class FormController {
 	
 	var _sFormId :String;
-	var _m :StringMap<IFunction<FormElement,Dynamic>>;
+	var _m :StringMap<IFunction<FormElement,Void>>;
 	
-	public function new( m :StringMap<IFunction<FormElement,Dynamic>> ) {
+	public function new( m :StringMap<IFunction<FormElement,Void>> ) {
 		_m = m;
 		Browser.document.addEventListener( 'submit', handleEvent );
 	}
