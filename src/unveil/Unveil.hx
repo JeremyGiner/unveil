@@ -53,6 +53,10 @@ class Unveil {
 		for ( o in mPageHandle ) _oPageController.addPageHandler(o);
 		_oPageController.goto( Browser.location.pathname );
 	}
+	
+	public function getModel() {
+		return _oModel;
+	}
 
 	public function getPageController() {
 		return _oPageController;

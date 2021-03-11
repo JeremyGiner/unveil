@@ -214,8 +214,14 @@ class Compiler {
 		if ( _REGEXP_FLOAT.match( s ) ) 
 			return new Const( Std.parseFloat(s) );
 			
-		if ( s.charAt(0) == '\'')
-			return new Const( s.substr(1,s.length-2) );
+		if ( 
+			s.charAt(0) == '\'' 
+			&& s.charAt( s.length - 1 ) == '\''
+		) {
+			var sConstString = s.substr(1, s.length - 2);
+			if( isStringConst( sConstString ) )
+				return new Const( sConstString );
+		}
 		
 		
 		// 
@@ -229,6 +235,22 @@ class Compiler {
 			return oOperator.createItem( aChild );
 		}
 		return new VPathAccessor(s);
+	}
+	
+	public function isStringConst( s :String ) {
+		var iIndex = 0;
+		while ( true ) {
+			iIndex = s.indexOf('\'', iIndex);
+			
+			// No limiter found inside
+			if ( iIndex == -1 )
+				return true;
+			
+			// Case : No escape char -> not a const string
+			if ( iIndex == 0 || s.charAt( iIndex-1 ) != '\\' ) 
+				return false;
+		}
+		return true;
 	}
 	
 	//TODO : call compileAnoStructure with string "{toto: qsdqsd}" remvoe bracket

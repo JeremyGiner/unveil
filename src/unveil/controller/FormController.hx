@@ -34,7 +34,7 @@ class FormController {
 		var oTarget :DOMElement = cast event.originalTarget;
 		if ( 
 			!Std.is( oTarget, DOMElement ) 
-			|| !_m.exists( oTarget.id )
+			|| !_m.exists( oTarget.getAttribute('id') )
 		)
 			return;
 			
@@ -44,7 +44,7 @@ class FormController {
 		//trace(js.Browser.location);
 		var oForm :js.html.FormElement = cast oTarget;
 		
-		_m.get( oTarget.id ).apply( oForm );
+		_m.get( oTarget.getAttribute('id') ).apply( oForm );
     }
 	
 	static public function getInputMap( oForm :js.html.FormElement ) :Dynamic {
