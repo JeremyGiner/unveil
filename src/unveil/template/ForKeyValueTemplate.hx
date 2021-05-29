@@ -14,6 +14,7 @@ class ForKeyValueTemplate extends CompositeTemplate {
 	var _oExpression :IFunction<Dynamic,KeyValueIterable<Dynamic,Dynamic>>;
 	var _sKeyName :String;
 	var _sVarName :String;
+	var _oElseblock :CompositeTemplate;
 	
 	public function new( 
 		oExpression :IFunction<Dynamic,KeyValueIterable<Dynamic,Dynamic>>, 
@@ -24,11 +25,18 @@ class ForKeyValueTemplate extends CompositeTemplate {
 		_oExpression = oExpression;
 		_sVarName = sVarName;
 		_sKeyName = sKeyName;
+		_oElseblock = null;
 	}
 	
 	override public function render( oContext :Dynamic, oBuffer :StringBuf = null  ) {
 		var o = _oExpression.apply( oContext );
 		var oIterator :KeyValueIterator<Dynamic,Dynamic> = _getIterator( o );
+		
+		// Case : empty
+		if ( !oIterator.hasNext() && _oElseblock != null ) 
+			return _oElseblock.render( Reflect.copy(oContext), oBuffer );
+		
+		// Render loop
 		for ( k => v in oIterator ) {
 			var oCurrentContext = Reflect.copy(oContext);
 			Reflect.setField( oCurrentContext, _sKeyName, k);
@@ -45,5 +53,18 @@ class ForKeyValueTemplate extends CompositeTemplate {
 		)
 			return new MapKeyValueIterator( cast o );
 		return new DynamicAccessKeyValueIterator( o );
+	}
+	
+//_____________________________________________________________________________
+// Modifier
+
+	override public function addPart( oPart :ITemplate ) {
+		if ( _oElseblock == null )
+			return super.addPart( oPart );
+		_oElseblock.addPart( oPart );
+	}
+	
+	public function setElseBlock() {
+		_oElseblock = new CompositeTemplate();
 	}
 }

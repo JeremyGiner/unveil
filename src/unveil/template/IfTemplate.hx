@@ -7,7 +7,6 @@ import sweet.functor.IFunction;
  */
 class IfTemplate extends CompositeTemplate {
 	var _oExpression :IFunction<Dynamic,Bool>;
-	
 	var _oElseblock :CompositeTemplate;
 	
 	public function new( oExpression :IFunction<Dynamic,Bool> ) {

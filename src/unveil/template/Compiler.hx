@@ -1,15 +1,18 @@
 package unveil.template;
+import haxe.ds.StringMap;
 import sweet.functor.IFunction;
+import sweet.functor.IBiFunction;
 import unveil.View;
-import unveil.tool.VPathAccessor;
+import unveil.compiler.ExpressionCompiler;
+import unveil.tool.StringStream;
 import unveil.template.ITemplate;
 import unveil.tool.StringTool;
 
 using StringTools;
 
-typedef BlockHeader = {
-	var template :CompositeTemplate;
-	var end_tokken :Null<String>;
+
+typedef Config = {
+	var instruction_ar :StringMap<IInstructionCompiler>;
 }
 
 /**
@@ -18,317 +21,63 @@ typedef BlockHeader = {
  */
 class Compiler {
 	
-	static var _ELSE = 'else';
-	static var _ENDIF = 'endif';
-	static var _ENDFOR = 'endfor';
+	var _oConfig :Config;
 	
-	static var _REGEXP_INTEGER = ~/^\d+$/;
-	static var _REGEXP_FLOAT = ~/^[\d.]+$/;
-	//static var _REGEXP_FLOAT = ~/^render *(\w+) *(with)? *({.*})?$/;
+	public function new( oConfig :Config ) {
+		_oConfig = oConfig;
+	}
 	
-	static var _aUnaryOperator = [
-        new UnaryOperator('!',function(a :Bool){ return !a;}),
-        new UnaryOperator('-',function(a :Dynamic){ return -a;}),
-    ];
-	static var _aOperator = [
-        new Operator('%',function(a :Dynamic,b :Dynamic){ return a%b;}),
-        new Operator('*',function(a :Dynamic,b :Dynamic){ return a*b;}),
-        new Operator('/',function(a :Dynamic,b :Dynamic){ return a/b;}),
-        new Operator('+',function(a :Dynamic,b :Dynamic){ return a+b;}),
-        new Operator('-',function(a :Dynamic,b :Dynamic){ return a-b;}),
-        new Operator('==',function(a :Dynamic,b :Dynamic){ return a==b;}),
-        new Operator('!=',function(a :Dynamic,b :Dynamic){ return a!=b;}),
-        new Operator('<',function(a :Dynamic,b :Dynamic){ return a<b;}),
-        new Operator('<=',function(a :Dynamic,b :Dynamic){ return a<=b;}),
-        new Operator('>',function(a :Dynamic,b :Dynamic){ return a>b;}),
-        new Operator('>=',function(a :Dynamic,b :Dynamic){ return a>=b;}),
-        new Operator('...',function(a :Dynamic,b :Dynamic){ return a...b;}),
-        new Operator('&&',function(a :Bool,b :Bool){ return a&&b;}),
-        new Operator('||',function(a :Bool,b :Bool){ return a||b;}),
-    ];
-
-	var _oView :View;
 	
-	public function new( oView :View = null ) {
-		_oView = oView;
+	static public function getDefaultConfig( oExprCompiler :IExpressionCompiler, oView :View ) :Config {
+		return {
+			instruction_ar: [
+				'{{' => new PrintInstructionCompiler(oExprCompiler,'}}'),
+				'{%' => new InstructionCompiler(
+					InstructionCompiler.getDefaultConfig( 
+						oExprCompiler, oView, '%}' 
+					),
+					'%}'
+				),
+			],
+		};
 	}
 	
 	public function compile( s :String ) {
 		
-		var lStack = new List<BlockHeader>();
-		lStack.push( { template: new CompositeTemplate(), end_tokken: null} );
-		var oCurrentTemplate = this;
+		var lStack = new List<CompositeTemplate>();
+		lStack.push( new CompositeTemplate() );
 		
-		// Parse
-		var a = s.split('::');
-		for ( i in 0...a.length ) {
+		var oStream = new StringStream( s );
+		
+		while ( true ) {
+			var oResult = oStream.getClosest( [for(key in _oConfig.instruction_ar.keys()) key] );
 			
-			// Case : pur string
-			if ( i % 2 == 0 ) {
-				lStack.first().template.addPart( new TemplateString( a[i] ) );
-				continue;
+			// Case : no more instructions
+			if ( oResult == null ) {
+				lStack.first().addPart( 
+					new TemplateString( oStream.getRemaining() )
+				);
+				break;
 			}
 			
-			var s = a[i].trim();
+			// Case : something to print before opening tag
+			if( oResult.position - 1 != oStream.getPosition() )
+				lStack.first().addPart( new TemplateString( oStream.read( oResult.position - oStream.getPosition() ) ) );
 			
-			// Filter empty string
-			if ( s == '' )
-				continue;
-			
-			// Case : end block tokken
-			if ( s!= null && s == lStack.first().end_tokken ) {
-				lStack.pop();
-				continue;
-			}
-			
-			// Case : else tokken
-			if ( s == 'else' ) {
-				try {
-				cast( lStack.first().template, IfTemplate).setElseBlock();
-				continue;
-				} catch ( e :Dynamic  ) {
-					throw 'else tokken must follow if (following ' + Type.getClassName(Type.getClass(lStack.first().template)) + ')';
-				}
-			}
-			
-			if ( s.startsWith('render')  ) {
-				
-				lStack.first().template.addPart( compileSubRender(s) );
-				continue;
-			}
-			
-			// Compile instruction
-			var oBlockHeader = compileInstruction( s );
-			
-			// Case : simple print var
-			if ( oBlockHeader == null ) {
-				lStack.first().template.addPart( compilePrintVar( s ) );
-				continue;
-			}
-			
-			// Link new template to parent
-			lStack.first().template.addPart( oBlockHeader.template );
-			
-			// Case : block
-			if ( oBlockHeader.end_tokken != null ) {
-				lStack.push(oBlockHeader);
-				continue;
-			}
+			var oSubCompiler = _oConfig.instruction_ar.get( oResult.needle );
+			oStream.move( oResult.position + oResult.needle.length );
+			lStack = oSubCompiler.apply( lStack, oStream );
 		}
+		
 		
 		// TODO : explain
 		if ( lStack.length != 1 )
-			throw 'parsing failed, missing closing token '+lStack.first().end_tokken + '  near '+s;
+			throw 'parsing failed, missing closing token '+lStack.first() + '  near '+s;
 		
-		return lStack.first().template;
+		return lStack.first();
 	}
-	
-	public function compileInstruction( s :String) :BlockHeader {
-		
-		//s = s.replace( ' ', '');
-		
-		if ( s.startsWith('if ') ||  s.startsWith('if(')  ) {
-			var s = s.substring(2 );
-			return {
-				end_tokken: _ENDIF,
-				template: new IfTemplate( 
-					cast compileExpression( s ) // TODO : compile bool expression only
-				),
-			};
-		}
-		
-		if ( s.startsWith('for ') || s.startsWith('for(') ) {
-			var s = s.substring( 3 ).trim();
-			if ( s.startsWith('(') && s.endsWith(')') )
-				s = s.substring( 1, s.length - 1 ).trim();
-			var a = s.split(' in ');
-			if ( a.length != 2 )
-				throw 'Expected for {string} in {string}, in not found';
-			// Case : key value
-			var aKeyValueExp = a[0].split(' => ');
-			if ( aKeyValueExp.length == 2 ) {
-				return {
-					end_tokken: _ENDFOR,
-					template: new ForKeyValueTemplate( 
-						cast compileExpression( a[1].trim() ),
-						aKeyValueExp[0].trim(),
-						aKeyValueExp[1].trim()
-					),
-				};
-			}
-			return {
-				end_tokken: _ENDFOR,
-				template: new ForTemplate( 
-					cast compileExpression( a[1].trim() ),
-					a[0].trim()
-				),
-			};
-		}
-		
-		return null;
-		// TODO : handle else
-		
-		//https://github.com/HaxeFoundation/haxe/blob/development/std/haxe/Template.hx
-		
-		// parse exp operator arthmetic
-		// re-arange sequence into arbo
-			
-		
-	}
-	
-	public function compileSubRender( s :String ) :ITemplate {
-		var s = s.substring(7);
-				
-		s = ignoreParenthesis( s );// TODO : handle depth
-		
-		var a = s.split(' with ');
-		
-		var oWidth = null;
-		if ( a.length == 2 ) 
-			oWidth = compileAnoStructure( a[1] );
-		return new SubRendererTemplate( _oView, cast compileExpression(a[0]), oWidth );
-	}
-	
-	public function compilePrintVar( s :String ) :ITemplate {
-		return new PrintVarTemplate( compileExpression(s) );
-	}
-	/*
-	public function getOperatorPriority( s :String ) {
-		
-		switch( ) {
-			
-		}
-		return 
-	}
-	*/	
-	public function compileExpression( s :String ) :IFunction<Dynamic,Dynamic> {
-		s = s.trim();
-		
-		// Case : const
-		switch( s ) {
-			case 'null' : return new Const( null ); //TODO : re-use same instance
-		}
-		
-		if ( _REGEXP_INTEGER.match( s ) ) 
-			return new Const( Std.parseInt(s) );
-		if ( _REGEXP_FLOAT.match( s ) ) 
-			return new Const( Std.parseFloat(s) );
-			
-		if ( 
-			s.charAt(0) == '\'' 
-			&& s.charAt( s.length - 1 ) == '\''
-		) {
-			var sConstString = s.substr(1, s.length - 2);
-			if( isStringConst( sConstString ) )
-				return new Const( sConstString );
-		}
-		
-		
-		// 
-		for ( oOperator in _aOperator ) {
-			var a = s.split( oOperator.getTokken() );
-			if ( a.length > 2 )
-				throw 'not implemented yet';
-			if ( a.length == 1 )
-				continue;
-			var aChild = a.map(function( s ) { return compileExpression(s); });
-			return oOperator.createItem( aChild );
-		}
-		return new VPathAccessor(s);
-	}
-	
-	public function isStringConst( s :String ) {
-		var iIndex = 0;
-		while ( true ) {
-			iIndex = s.indexOf('\'', iIndex);
-			
-			// No limiter found inside
-			if ( iIndex == -1 )
-				return true;
-			
-			// Case : No escape char -> not a const string
-			if ( iIndex == 0 || s.charAt( iIndex-1 ) != '\\' ) 
-				return false;
-		}
-		return true;
-	}
-	
-	//TODO : call compileAnoStructure with string "{toto: qsdqsd}" remvoe bracket
-	
-	public function compileAnoStructure( s :String ) :IFunction<Dynamic,Dynamic> {
-		s = s.trim();
-		s = StringTool.ltrim(s,'{');
-		s = StringTool.rtrim(s, '}');
-		var aField = s.split(',');// TODO : handle depth
-		
-		var aToto = [];
-		for ( sField in aField ) {
-			
-			sField = sField.trim();
-			
-			// Ignore empty
-			if ( sField.length == 0 ) continue;
-			
-			var aKeyValue = sField.split(':');
-			if ( aKeyValue.length != 2 )
-				throw 'expect "key: value", got "' + sField + '"';
-				
-			// 
-			var sKey = aKeyValue[0].trim();
-			// TODO: Validate key
-			
-			aToto.push({
-				name: sKey,
-				fn: compileExpression( aKeyValue[1].trim() ),
-			});
-		}
-		
-		return new AnnoStructure( aToto );
-	}
-	
-	// Temporary solution
-	static public function ignoreParenthesis( s :String ) {
-		s = s.replace( '(', ' ');
-		s = s.replace( ')', ' ');
-		return s;
-	}
-	
 	
 }
-
-class Const implements IFunction<Dynamic,Dynamic> {
-    
-	var _o :Dynamic;
-	
-    public function new( o :Dynamic ) {
-        _o = o;
-    }
-    
-    public function apply( o :Dynamic ) {
-        return _o;
-    }
-}
-
-typedef PairFieldFunction = {
-	var name :String;
-	var fn :IFunction<Dynamic,Dynamic>;
-}
-class AnnoStructure implements IFunction<Dynamic,Dynamic> {
-    
-	var _aField :Array<PairFieldFunction>; 
-	
-    public function new( aField :Array<PairFieldFunction> ) {
-        _aField = aField;
-    }
-    
-    public function apply( oContext :Dynamic ) {
-		var o = {};
-		for ( oField in _aField )
-			Reflect.setField(o, oField.name, oField.fn.apply( oContext ) );
-        return o;
-    }
-}
-
 
 class TemplateString implements ITemplate {
 	var _s :String;
@@ -341,103 +90,249 @@ class TemplateString implements ITemplate {
 		return oBuffer;
 	}
 }
-/*
-class VPathAccessorProxy extends IFunction<Dynamic,Dynamic> {
+
+
+typedef ITemplateCompiler = IBiFunction<Compiler,StringStream,ITemplate>;
+class ATemplateCompiler implements ITemplateCompiler {
 	
-	public function apply( oContext :Dynamic ) {
-		return 
+	var _sEndToken :String;
+	
+	public function new( sEndToken :String ) {
+		_sEndToken = sEndToken;
 	}
-}*/
-
-
-interface IOperator {
-    
-    public function getTokken() :String;
-	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) :IFunction<Dynamic,Dynamic>;
-}
-
-class UnaryOperator implements IOperator {
-	var _s :String;
-	var _fn :Dynamic->Dynamic;
-	
-    public function new( s :String, fn :Dynamic->Dynamic ) {
-        _s = s;
-    }
-	public function getTokken() { return _s; };
-	
-	public function getCallback() {
-		return _fn;
+	public function processEndToken( s :StringStream ) {
+		s.ignoreWhitespace();
+		s.eat( _sEndToken );
 	}
 	
-	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) {
-		return new UnaryOperatorItem( this, aChildren ); 
-	};
-}
-class Operator implements IOperator {
-	var _s :String;
-	var _fn :Dynamic->Dynamic->Dynamic;
-    public function new( s :String, fn :Dynamic->Dynamic->Dynamic ) {
-        _s = s;
-		_fn = fn;
-    }
-	public function getTokken() { return _s; };
-	
-	public function getCallback() {
-		return _fn;
+	public function apply( oCompiler :Compiler, s :StringStream ) {
+		throw 'override me';
+		return null;
 	}
-	
-	public function createItem( aChildren :Array<IFunction<Dynamic,Dynamic>> ) {
-		return new OperatorItem( this, aChildren ); 
-	};
 }
 
-class UnaryOperatorItem implements IFunction<Dynamic,Dynamic> {
-	var _oOperator :UnaryOperator;
-	var _aChildren :Array<IFunction<Dynamic,Dynamic>>;
+
+typedef IInstructionCompiler = IBiFunction<List<CompositeTemplate>,StringStream,List<CompositeTemplate>>;
+
+class AInstructionCompiler implements IInstructionCompiler {
+	
+	var _sEndToken :String;
+	
+	public function new( sEndToken :String ) {
+		_sEndToken = sEndToken;
+	}
+	
+	public function processEndToken( s :StringStream ) {
+		s.ignoreWhitespace();
+		s.eat( _sEndToken );
+	}
+	
+	public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		throw 'override me';
+		return null;
+	}
+}
+class AInstructionCompilerAware extends AInstructionCompiler {
+	var _oCompiler :IExpressionCompiler;
+	public function new( oCompiler :IExpressionCompiler, sEndToken :String ) {
+		_oCompiler = oCompiler;
+		super( sEndToken );
+	}
+}
+
+class PrintInstructionCompiler extends AInstructionCompilerAware {
+	override public function apply( 
+		lParent :List<CompositeTemplate>, 
+		s :StringStream 
+	) {
+		var oTemplate = new PrintVarTemplate( _oCompiler.apply( 
+			s, [ _sEndToken ]
+		) );
+		processEndToken( s );
+		
+		lParent.first().addPart( oTemplate );
+		return lParent;
+	}
+}
+class InstructionCompiler extends AInstructionCompiler {
+	
+	var _mInstructionCompiler :StringMap<IInstructionCompiler>;
 	
 	public function new( 
-		oOperator :UnaryOperator, 
-		aChildren :Array<IFunction<Dynamic,Dynamic>>
+		mInstructionCompiler :StringMap<IInstructionCompiler>,
+		sEndToken :String
 	) {
-		_oOperator = oOperator;
-		_aChildren = aChildren;// TODO : assert length
+		_mInstructionCompiler = mInstructionCompiler;
+		super( sEndToken );
 	}
 	
-	public function apply( o :Dynamic ) {
-		var fn = _oOperator.getCallback();
-		return fn( _aChildren[0].apply( o ) ); 
-	};
-}
-
-class OperatorItem implements IFunction<Dynamic,Dynamic> {
-	var _oOperator :Operator;
-	var _aChildren :Array<IFunction<Dynamic,Dynamic>>;
-	
-	public function new( 
-		oOperator :Operator, 
-		aChildren :Array<IFunction<Dynamic,Dynamic>>
-	) {
-		_oOperator = oOperator;
-		_aChildren = aChildren;// TODO : assert length
+	static public function getDefaultConfig( 
+		oCompiler :IExpressionCompiler, 
+		oView :View, 
+		sEndToken :String 
+	) :StringMap<IInstructionCompiler> {
+		return [
+			'for' => new ForCompiler( oCompiler, sEndToken ),
+			'endfor' => new EndBlock( sEndToken ),
+			'render' => new SubRendererCompiler( oCompiler, oView, sEndToken ), 
+			'if' => new IfCompiler( oCompiler, sEndToken ),
+			'endif' => new EndBlock( sEndToken ),
+			'else' => new ElseCompiler( sEndToken ),
+			//'set' => 
+		];
 	}
 	
-	public function apply( o :Dynamic ) {
-		var fn = _oOperator.getCallback();
-		return fn( _aChildren[0].apply( o ), _aChildren[1].apply( o ) ); 
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		
+		s.ignoreWhitespace();
+		
+		// sort by length desc
+		var aKey = [for( k in _mInstructionCompiler.keys() ) k]; 
+		aKey.sort(Reflect.compare);
+		aKey.reverse();
+		
+		// test each
+		var oInstructionCompiler = null;
+		for( sKey in aKey )
+			if ( s.startWith( sKey ) && ! StringStream.isAlphaNum( s.charAt( sKey.length ) ) ) {
+				s.read( sKey.length );
+				oInstructionCompiler = _mInstructionCompiler.get( sKey );
+				break;
+			}
+		
+		// Delegate to instructions
+		return oInstructionCompiler.apply( lParent, s );
 	};
+	
 }
 
-//class Test {
-//
-   //
-    //static function main() {
-        //var s = 'text *( toto + titi )/ tutu';
-        //s = s.replace(' ','');
-        //s = s.replace('()','');
-        //var mFirst = _aOperator.map(function(o :Operator) { return o.toString()[0];});
-        //var sRegexp = _aOperator.map(function(o :Operator) { return o.toString();});
-        //var ergexp = new RegExp('('+sRegexp.join('|')+')');
-        //ergexp.
-        //trace(s);
-    //}
-//}
+
+
+
+class SubRendererCompiler extends AInstructionCompilerAware {
+	var _oView :View;
+	public function new( oCompiler :IExpressionCompiler,oView :View, sEndToken :String ) {
+		_oView = oView;
+		super( oCompiler, sEndToken );
+	}
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		
+		var oExpr = _oCompiler.apply( s, ['%}','with '] ); // TODO : use parameter
+		var oExprWith = null;
+		if ( s.startWith('with ') ) {
+			s.read( 'with '.length );
+			oExprWith = _oCompiler.apply( s, [ _sEndToken ] );// TODO : use parameter
+		}
+		processEndToken( s );
+		
+		lParent.first().addPart( new SubRendererTemplate( _oView, cast oExpr, oExprWith ) );
+		return lParent;
+	}
+}
+
+class ForCompiler extends AInstructionCompilerAware {
+	
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		// Get first variable name
+		var sVarLabel = getVarLabel( s );
+		if ( sVarLabel == null )
+			throw 'Expected var label';
+		
+		// Get second variable name
+		var sVarKeyLabel = null;
+		s.ignoreWhitespace();
+		if ( s.startWith('=>') ) {
+			s.eat('=>');
+			sVarKeyLabel = sVarLabel;
+			sVarLabel = getVarLabel( s );
+			
+			if ( sVarLabel == null )
+				throw 'Expected var label';
+		}
+		
+		s.ignoreWhitespace();
+		s.eat('in');
+		
+		// Get expression
+		var oExpr = _oCompiler.apply( s, [ _sEndToken ] );
+		
+		processEndToken( s );
+		
+		// Create template
+		var oTemplate = ( sVarKeyLabel != null )?
+			new ForKeyValueTemplate( 
+				cast oExpr,
+				sVarKeyLabel,
+				sVarLabel
+			) : new ForTemplate( 
+				cast oExpr,
+				sVarLabel
+			)
+		;
+		lParent.push( oTemplate );
+		return lParent;
+	}
+	
+	function getVarLabel( s :StringStream ) {
+		s.ignoreWhitespace();
+		var i = 0;
+		while ( true ) {
+			
+			if ( 
+				StringStream.isAlpha( s.charAt( i ) ) 
+				|| s.charAt( i ) == '_'
+			) {
+				i++;
+				continue;
+			}
+			break;
+		}
+		if ( i == 0 )
+			return null;
+		
+		return s.read( i );
+	}
+}
+
+
+class IfCompiler extends AInstructionCompilerAware {
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		// Get expression
+		var oExpr = _oCompiler.apply( s, [ _sEndToken ] );
+		processEndToken( s );
+		
+		// Create template
+		lParent.push( new IfTemplate( cast oExpr )  );
+	
+		return lParent;
+	}
+	
+}
+
+class ElseCompiler extends AInstructionCompiler {
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		var oTemplate = lParent.first();
+		
+		if ( Std.is( oTemplate, ForTemplate ) ) { // TODO : use commun interface isntead
+			var oForTemplate :ForTemplate = cast oTemplate;
+			oForTemplate.setElseBlock();
+		}
+		if ( Std.is( oTemplate, IfTemplate ) ) {
+			var oIfTemplate :IfTemplate = cast oTemplate;
+			oIfTemplate.setElseBlock();
+		}
+		processEndToken( s );
+		return lParent;
+	}
+}
+
+class EndBlock extends AInstructionCompiler {
+	override public function apply( lParent :List<CompositeTemplate>, s :StringStream ) {
+		var o = lParent.pop();
+		if ( lParent.isEmpty() ) throw '!!!';
+		lParent.first().addPart( o );
+		processEndToken( s );
+		return lParent;
+	}
+}
+

@@ -2,6 +2,7 @@ package unveil;
 import js.Browser;
 import js.html.DOMElement;
 import js.html.Event;
+import unveil.compiler.ExpressionCompiler;
 import unveil.template.Compiler;
 import unveil.template.ITemplate;
 import haxe.ds.StringMap;
@@ -42,7 +43,7 @@ class Unveil {
 		_oView = new View( _oModel );
 		
 		
-		var oCompiler = new Compiler(_oView);
+		var oCompiler = new Compiler( Compiler.getDefaultConfig( new ExpressionCompiler(),_oView));
 		
 		for ( oItem in aTemplate ) {
 			_oView.addTemplate( oItem.key, oCompiler.compile(oItem.template) );
